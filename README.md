@@ -89,7 +89,3 @@ STL-Repair-Toolkit/
 ├── .gitignore
 └── .venv/   # opcional, generado al crear el entorno local
 ```
-
-## Licencia
-
-Este proyecto se distribuye sin una licencia formal definida en el repositorio, por lo que se recomienda revisar su uso según el contexto de tu proyecto o requerimiento personal.
