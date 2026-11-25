@@ -1,91 +1,82 @@
 # STL Repair Toolkit
 
-Herramienta local para diagnosticar y reparar modelos STL dañados antes de impresión 3D o uso en CAD.
+A local command-line tool that diagnoses and repairs broken STL models before 3D printing or CAD work.
 
-## Descripción
+It loads an `.stl` file, reports the state of the mesh, repairs it with [trimesh](https://trimesh.org/) and [pymeshfix](https://github.com/pyvista/pymeshfix), and prints a before/after comparison. Your models never leave your machine.
 
-Este proyecto toma un archivo `.stl`, analiza su geometría, detecta problemas comunes como huecos, caras degeneradas, vértices duplicados y mallas no watertight, y luego intenta repararlas con herramientas como `trimesh` y `pymeshfix`.
+## Features
 
-La idea principal es ofrecer una solución simple, rápida y útil para limpiar archivos STL que suelen venir con errores de topología o geometría.
+- **Diagnosis** of:
+  - open edges (holes) and non-watertight meshes
+  - duplicate and unreferenced vertices
+  - degenerate (near zero-area) faces
+  - inconsistent normal orientation
+  - number of separate components
+- **Two-stage repair:** a basic pass with `trimesh`, then hole filling and non-manifold repair with `pymeshfix`
+- **Before/after summary** with the change in each metric
+- **Graceful fallback:** if `pymeshfix` fails, the `trimesh` result is kept
 
-## Características
+## Requirements
 
-- Diagnóstico de la malla antes y después de la reparación
-- Detección de:
-  - vértices duplicados
-  - caras degeneradas
-  - vértices no referenciados
-  - aristas abiertas / huecos
-  - mallas no watertight
-- Reparación con enfoque básico y avanzado
-- Exportación directa del archivo corregido
-- Compatible con flujo local y simple de uso desde terminal
+- Python 3.11 or newer
+- The packages in `requirements.txt`, plus `networkx`, which `trimesh` needs to split meshes and fill holes
 
-## Requisitos
-
-- Python 3.10 o superior
-- `numpy`
-- `trimesh`
-- `pymeshfix`
-
-## Instalación
+## Installation
 
 ```bash
+git clone https://github.com/CrisGP14/STL-Repair-Toolkit.git
 cd STL-Repair-Toolkit
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt networkx
 ```
 
-## Uso
+## Usage
 
 ```bash
-python3 Flix.py modelo.stl
+python3 Flix.py model.stl
 ```
 
-Por defecto, el archivo de salida se genera con el nombre:
+The repaired mesh is saved next to the original as `model_fixed.stl`. The original file is not modified.
+
+| Option | Description |
+|---|---|
+| `-o`, `--output PATH` | Path of the repaired file (default: `<name>_fixed.stl`) |
+| `--only-trimesh` | Run only the basic repair: faster and less aggressive |
+
+### Examples
 
 ```bash
-modelo_fixed.stl
+# Choose the output file
+python3 Flix.py input.stl --output repaired.stl
+
+# Basic repair only
+python3 Flix.py input.stl --only-trimesh
 ```
 
-### Opciones disponibles
+> [!NOTE]
+> The program's console messages are in Spanish.
 
-- `-o, --output`: define la ruta del archivo STL corregido
-- `--only-trimesh`: usa solo la reparación básica de `trimesh`
+## How it works
 
-### Ejemplo
+1. **Load** the STL as a single triangle mesh.
+2. **Diagnose** it and print the results. If the mesh is already watertight and has no duplicate vertices or degenerate faces, the program stops here and writes no output file.
+3. **Basic repair (`trimesh`):** merge vertices, remove unreferenced vertices and degenerate faces, fix normals and fill small holes.
+4. **Advanced repair (`pymeshfix`):** close the remaining holes and fix non-manifold geometry. Skipped with `--only-trimesh`.
+5. **Diagnose again**, print the comparison and export the result.
 
-```bash
-python3 Flix.py entrada.stl --output salida_reparada.stl
-python3 Flix.py entrada.stl --only-trimesh
-```
+## Limitations
 
-## Flujo de trabajo
+- **Memory use grows with the square of the vertex count.** A test mesh with about 41,000 vertices tried to allocate 12.5 GiB during diagnosis, so detailed models may need to be decimated first.
+- `--only-trimesh` closes only small holes; larger ones need the full repair.
+- Automatic repair can change the geometry. Check the result before printing, and use Blender, Meshmixer or a CAD tool for complex damage.
 
-1. Carga el archivo STL
-2. Analiza la malla y muestra el estado inicial
-3. Elimina elementos problemáticos
-4. Intenta cerrar huecos y corregir geometría
-5. Genera una versión reparada en disco
-
-## Nota importante
-
-Este repositorio se enfoca en la utilidad del script y su documentación. El archivo principal `Flix.py` se mantiene intacto como herramienta funcional, sin alterar su lógica interna.
-
-## Consideraciones
-
-- Los archivos STL grandes suelen mantenerse fuera del repositorio mediante `.gitignore`.
-- Si `pymeshfix` falla durante la reparación, el proyecto intenta continuar con la salida generada por `trimesh`.
-- Si el archivo sigue teniendo problemas complejos, puede requerirse revisión manual en Blender, Meshmixer o herramientas CAD más avanzadas.
-
-## Estructura del proyecto
+## Project structure
 
 ```text
 STL-Repair-Toolkit/
-├── Flix.py
-├── README.md
-├── requirements.txt
-├── .gitignore
-└── .venv/   # opcional, generado al crear el entorno local
+├── Flix.py            # command-line tool
+├── requirements.txt   # Python dependencies
+├── .gitignore         # also excludes *.stl files
+└── README.md
 ```
